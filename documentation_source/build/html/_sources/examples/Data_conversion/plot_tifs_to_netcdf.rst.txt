@@ -18,8 +18,8 @@
 .. _sphx_glr_examples_Data_conversion_plot_tifs_to_netcdf.py:
 
 
-TIF to NetCDF conversion
--------------------------
+Multiple TIFs to NetCDF conversion
+----------------------------------
 Dataset References:
 Minsley, B.J., James, S.R., Bedrosian, P.A., Pace, M.D., Hoogenboom, B.E., and Burton, B.L., 2021, Airborne electromagnetic, magnetic, and radiometric survey of the Mississippi Alluvial Plain, November 2019 - March 2020: U.S. Geological Survey data release, https://doi.org/10.5066/P9E44CTQ.
 James, S.R., and Minsley, B.J., 2021, Combined results and derivative products of hydrogeologic structure and properties from airborne electromagnetic surveys in the Mississippi Alluvial Plain: U.S. Geological Survey data release, https://doi.org/10.5066/P9382RCI.
@@ -114,9 +114,10 @@ Plotting
     plt.show()
 
 
-.. image:: /examples/Data_conversion/images/sphx_glr_plot_tifs_to_netcdf_001.png
-    :alt: stack = 0, spatial_ref = 0
-    :class: sphx-glr-single-img
+.. image-sg:: /examples/Data_conversion/images/sphx_glr_plot_tifs_to_netcdf_001.png
+   :alt: stack = 0 [not_defined], spatial_ref = 0
+   :srcset: /examples/Data_conversion/images/sphx_glr_plot_tifs_to_netcdf_001.png
+   :class: sphx-glr-single-img
 
 
 
@@ -125,7 +126,7 @@ Plotting
 
 .. rst-class:: sphx-glr-timing
 
-   **Total running time of the script:** ( 0 minutes  1.382 seconds)
+   **Total running time of the script:** ( 0 minutes  1.747 seconds)
 
 
 .. _sphx_glr_download_examples_Data_conversion_plot_tifs_to_netcdf.py:

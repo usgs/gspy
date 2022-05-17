@@ -65,12 +65,12 @@ Data Conversion
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="TIF to NetCDF conversion">
+    <div class="sphx-glr-thumbcontainer" tooltip="Multiple TIFs to NetCDF conversion">
 
 .. only:: html
 
  .. figure:: /examples/Data_conversion/images/thumb/sphx_glr_plot_tifs_to_netcdf_thumb.png
-     :alt: TIF to NetCDF conversion
+     :alt: Multiple TIFs to NetCDF conversion
 
      :ref:`sphx_glr_examples_Data_conversion_plot_tifs_to_netcdf.py`
 
