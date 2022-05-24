@@ -1,5 +1,0 @@
-***************
-Installing GSpy
-***************
-
-pip install .
