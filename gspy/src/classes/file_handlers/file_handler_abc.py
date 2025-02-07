@@ -122,9 +122,9 @@ class file_handler(ABC):
             if '[' in col:
                 col = col.split('[')[0]
             elif '_' in col:
-                uparts = col.rsplit('_',1) 
+                uparts = col.rsplit('_',-1) 
                 ubase = uparts[0]
-                ulast = uparts[1] if len(uparts) > 1 else ''
+                ulast = uparts[-1] if len(uparts) > 1 else ''
                 if ulast.isdigit():
                     col = ubase
             if col in out:
