@@ -193,8 +193,14 @@ class Tabular(Dataset):
 
                     # if variable has multiple columns with [i] increment, to be combined
                     elif (var in column_counts) and (column_counts[var] > 1):
-                        values = file.df[["{}[{}]".format(var, i) for i in range(column_counts[var])]].values
-
+                        try:
+                            values = file.df[["{}[{}]".format(var, i) for i in range(column_counts[var])]].values
+                        except KeyError:
+                            try:
+                                values = file.df[["{}_{}".format(var,i) for i in range(column_counts[var])]].values
+                            except KeyError:
+                                raise KeyError(f"Column header names for variable '{var}' not found in Var[0] or Var_0 format")
+                            
                     assert values is not None, ValueError(('{} not in data file, double check, '
                                                           'raw_data_columns field required in variables '
                                                           'if combining unique columns to a new variable without an [i] increment').format(var))
