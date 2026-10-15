@@ -467,6 +467,141 @@ class TestWorkbench:
         assert workbench_handler.aliases("ELEVATION") == ["ELEVATION"]
 
 
+@pytest.fixture
+def raw_system():
+    md = Metadata.read(str(DATA / "workbench" / "data" / "raw_data.yml"))
+    system, _ = Container.Systems(nominal_system=md["nominal_system"])
+    return system
+
+
+class TestWorkbenchTemplate:
+    """A Workbench export says enough about itself to fill in much of its own metadata."""
+
+    @pytest.fixture
+    def model(self, workbench_system):
+        return Tabular.metadata_template(WORKBENCH_MOD, system=workbench_system)
+
+    @pytest.fixture
+    def raw(self, raw_system):
+        return Tabular.metadata_template(WORKBENCH_XYZ, system=raw_system)
+
+    def test_the_gate_times_read_back_as_numbers(self, model, tmp_path):
+        model.dump(str(tmp_path / "template.yml"))
+
+        centers = Metadata.read(str(tmp_path / "template.yml"))["dimensions"]["lm_gate_times"]["centers"]
+
+        assert len(centers) == 21
+        assert all(isinstance(c, float) for c in centers)
+
+    def test_only_the_files_own_dimensions_are_offered(self, model):
+        assert set(model["dimensions"]) == {"lm_gate_times", "hm_gate_times",
+                                            "layer_depth", "layers_minus_1"}
+
+    def test_the_coordinates_are_the_files_own(self, model):
+        assert model["coordinates"] == {"x": "UTMX", "y": "UTMY", "z": "ELEVATION"}
+
+    def test_the_coordinates_are_named_as_the_file_names_them(self, tmp_path, raw_system):
+        path = tmp_path / "raw.xyz"
+        path.write_text(open(WORKBENCH_XYZ).read().replace("UTMX,", "X,").replace("UTMY,", "Y,"))
+
+        template = Tabular.metadata_template(str(path), system=raw_system)
+
+        assert template["coordinates"] == {"x": "X", "y": "Y", "z": "ELEVATION"}
+
+    def test_the_elevation_is_up_and_asks_for_its_datum(self, model):
+        assert model["variables"]["ELEVATION"]["positive"] == "up"
+        assert "??" in model["variables"]["ELEVATION"]["datum"]
+
+    def test_the_dataset_is_time_domain_em(self, model, raw):
+        assert model["dataset_attrs"]["method"] == "electromagnetic, time domain"
+        assert model["dataset_attrs"]["type"] == "models"
+        assert raw["dataset_attrs"]["type"] == "data"
+
+    def test_a_unit_in_brackets_is_kept(self, model):
+        assert model["variables"]["ALTITUDE"]["units"] == "m"
+
+    def test_a_layer_column_sits_on_the_layers(self, model):
+        for name in ("RHO", "RHO_STD", "SIGMA", "DEP_TOP", "DEP_BOT", "THK"):
+            assert model["variables"][name]["dimensions"] == ["index", "layer_depth"]
+        for name in ("DEP_BOT_STD", "THK_STD"):
+            assert model["variables"][name]["dimensions"] == ["index", "layers_minus_1"]
+
+    def test_the_layers_are_bounded_by_the_depths_in_the_file(self, model):
+        tops, bottoms = model["dimensions"]["layer_depth"]["bounds"]
+
+        assert tops[:2] == pytest.approx([0.0, 0.5])
+        assert bottoms[-1] == pytest.approx(450.005)
+        assert len(tops) == len(bottoms) == 40
+
+    def test_layers_whose_depths_vary_are_left_to_their_columns(self, tmp_path, workbench_system):
+        def deeper_second_layer(lines):
+            at = next((i for i, line in enumerate(lines) if "DEP_TOP_2 " in line), None)
+            if at is None:
+                return lines
+            column = lines[at].removeprefix("/").split().index("DEP_TOP_2")
+            values = lines[at + 1].split()
+            values[column] = "0.6"
+            return lines[:at + 1] + [" ".join(values) + "\n"] + lines[at + 2:]
+
+        path = workbench_model_copy(tmp_path, deeper_second_layer)
+        template = Tabular.metadata_template(path, system=workbench_system)
+
+        assert "bounds" not in template["dimensions"]["layer_depth"]
+        assert template["dimensions"]["layer_depth"]["length"] == 40
+
+    def test_the_boundaries_between_layers_say_what_they_are_for(self, model):
+        assert model["dimensions"]["layers_minus_1"]["length"] == 39
+        assert model.comments[("dimensions", "layers_minus_1")]["above"]
+
+    def test_the_em_columns_sit_on_their_couplets_gate_times(self, model):
+        for kind in ("data", "datastd", "syn"):
+            entry = model["variables"][f"hm_z_dbdt_{kind}"]
+            assert entry["dimensions"] == ["index", "hm_gate_times"]
+            assert entry["system_couplet"] == "hm_z_dbdt"
+
+    def test_the_raw_channels_sit_on_their_couplets_gate_times(self, raw):
+        for name in ("LM_Z_DBDT", "LM_Z_DBDT_STD"):
+            assert raw["variables"][name]["dimensions"] == ["index", "lm_gate_times"]
+            assert raw["variables"][name]["system_couplet"] == "lm_z_dbdt"
+
+    def test_raw_gate_times_the_system_has_are_not_repeated(self, raw):
+        assert "lm_gate_times" not in raw["dimensions"]
+
+    def test_raw_gate_times_the_system_lacks_come_from_the_header(self):
+        md = Metadata.read(str(DATA / "workbench" / "data" / "raw_data.yml"))["nominal_system"]
+        for name in ("lm_gate_times", "hm_gate_times"):
+            md["dimensions"].pop(name)
+        md["variables"]["couplet"].pop("gate_times")
+        system, _ = Container.Systems(nominal_system=md)
+
+        template = Tabular.metadata_template(WORKBENCH_XYZ, system=system)
+
+        assert len(template["dimensions"]["hm_gate_times"]["centers"]) == 37
+        assert template["variables"]["HM_Z_DBDT"]["dimensions"] == ["index", "hm_gate_times"]
+
+    @pytest.mark.parametrize("data, system", [(WORKBENCH_MOD, "workbench_system"),
+                                              (WORKBENCH_XYZ, "raw_system")])
+    def test_the_template_reads_back_in(self, data, system, tmp_path, request):
+        system = request.getfixturevalue(system)
+        Tabular.metadata_template(data, system=system).dump(str(tmp_path / "template.yml"))
+
+        ds = Tabular.read(data, metadata_file=str(tmp_path / "template.yml"), system=system,
+                          spatial_ref=SPATIAL_REF)
+
+        assert ds["x"].size > 0
+
+    def test_a_model_without_variables_hands_back_its_template(self):
+        md = Metadata.read(WORKBENCH_MOD_MD)
+        md.pop("variables")
+        survey = Survey.from_dict(str(DATA / "workbench" / "survey.yml"))
+        models = survey.gs.add_container("models", **dict(content="inverse models"))
+
+        with pytest.raises(InsufficientMetadataError) as error:
+            models.gs.add(key="inversion", data=WORKBENCH_MOD, metadata_file=md)
+
+        assert error.value.template["variables"]["RHO"]["dimensions"] == ["index", "layer_depth"]
+
+
 class TestColumnHeaderCounts:
     """Repeated columns are what become a second dimension on a variable."""
 
